@@ -25,6 +25,7 @@
 
 #define TOOL_NAME "irecovery"
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -101,6 +102,9 @@ static const char* mode_to_str(int mode)
 			break;
 		case IRECV_K_WTF_MODE:
 			return "WTF";
+			break;
+		case IRECV_K_PONGO_MODE:
+			return "pongoOS";
 			break;
 		default:
 			return "Unknown";
@@ -181,6 +185,9 @@ static void print_device_info(irecv_client_t client)
 			if (pend) {
 				printf("PWND: %.*s\n", (int)(pend-p), p);
 			}
+		}
+		if (devinfo->yolo) {
+			printf("YOLO: checkra1n\n");
 		}
 	} else {
 		printf("Could not get device info?!\n");
@@ -644,10 +651,18 @@ int main(int argc, char* argv[])
 
 	switch (action) {
 		case kResetDevice:
+			if (irecv_is_pongo_mode(client)) {
+				printf("This feature is not supported in pongo (pongoOS) mode.\n");
+				break;
+			}
 			irecv_reset(client);
 			break;
 
 		case kSendFile:
+			if (irecv_is_pongo_mode(client)) {
+				printf("This feature is not supported in pongo (pongoOS) mode.\n");
+				break;
+			}
 			irecv_event_subscribe(client, IRECV_PROGRESS, &progress_cb, NULL);
 			error = irecv_send_file(client, argument, IRECV_SEND_OPT_DFU_NOTIFY_FINISH);
 			debug("%s\n", irecv_strerror(error));
@@ -656,6 +671,10 @@ int main(int argc, char* argv[])
 		case kSendCommand:
 			if (devinfo->pid == 0x1881) {
 				printf("Shell is not available in Debug USB (KIS) mode.\n");
+				break;
+			}
+			if (irecv_is_pongo_mode(client)) {
+				printf("This feature is not supported in pongo (pongoOS) mode.\n");
 				break;
 			}
 			if (_is_breq_command(argument)) {
@@ -669,6 +688,10 @@ int main(int argc, char* argv[])
 		case kSendExploit:
 			if (devinfo->pid == 0x1881) {
 				printf("Shell is not available in Debug USB (KIS) mode.\n");
+				break;
+			}
+			if (irecv_is_pongo_mode(client)) {
+				printf("This feature is not supported in pongo (pongoOS) mode.\n");
 				break;
 			}
 			if (argument != NULL) {
@@ -688,12 +711,20 @@ int main(int argc, char* argv[])
 				printf("This feature is not supported in Debug USB (KIS) mode.\n");
 				break;
 			}
+			if (irecv_is_pongo_mode(client)) {
+				printf("This feature is not supported in pongo (pongoOS) mode.\n");
+				break;
+			}
 			init_shell(client);
 			break;
 
 		case kSendScript:
 			if (devinfo->pid == 0x1881) {
 				printf("This feature is not supported in Debug USB (KIS) mode.\n");
+				break;
+			}
+			if (irecv_is_pongo_mode(client)) {
+				printf("This feature is not supported in pongo (pongoOS) mode.\n");
 				break;
 			}
 			buffer_read_from_filename(argument, &buffer, &buffer_length);
@@ -723,6 +754,10 @@ int main(int argc, char* argv[])
 		case kRebootToNormalMode:
 			if (devinfo->pid == 0x1881) {
 				printf("This feature is not supported in Debug USB (KIS) mode.\n");
+				break;
+			}
+			if (irecv_is_pongo_mode(client)) {
+				printf("This feature is not supported in pongo (pongoOS) mode.\n");
 				break;
 			}
 			error = irecv_setenv(client, "auto-boot", "true");
