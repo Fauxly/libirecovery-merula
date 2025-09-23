@@ -1717,7 +1717,13 @@ int irecv_pongo_send_buffer(irecv_client_t client,
 #ifdef HAVE_IOKIT
 	return iokit_pongo_send_buffer(client, data, length, rv);
 #else
-	return IRECV_E_UNSUPPORTED; // todo
+	int transferred;
+	int ret = libusb_bulk_transfer(client->handle, 0x02, data, length, &transferred, USB_TIMEOUT);
+	if (ret < 0) {
+		libusb_clear_halt(client->handle, 0x02);
+	}
+	*rv = transferred;
+	return ret;
 #endif
 #else
 	return IRECV_E_UNSUPPORTED; // todo
@@ -1949,7 +1955,8 @@ static irecv_error_t libusb_open_with_ecid(irecv_client_t* pclient, uint64_t eci
 				usb_descriptor.idProduct == IRECV_K_WTF_MODE ||
 				usb_descriptor.idProduct == IRECV_K_DFU_MODE ||
 				usb_descriptor.idProduct == IRECV_K_PORT_DFU_MODE ||
-				usb_descriptor.idProduct == KIS_PRODUCT_ID) {
+				usb_descriptor.idProduct == KIS_PRODUCT_ID ||
+				usb_descriptor.idProduct == IRECV_K_PONGO_MODE) {
 
 				if (ecid == IRECV_K_WTF_MODE) {
 					if (usb_descriptor.idProduct != IRECV_K_WTF_MODE) {
@@ -3551,7 +3558,7 @@ static int iokit_usb_control_transfer_retval(irecv_client_t client, uint8_t bm_r
 {
 	IOReturn result;
 	IOUSBDevRequestTO req;
-	
+
 	bzero(&req, sizeof(req));
 	req.bmRequestType     = bm_request_type;
 	req.bRequest          = b_request;
@@ -3561,7 +3568,7 @@ static int iokit_usb_control_transfer_retval(irecv_client_t client, uint8_t bm_r
 	req.pData             = data;
 	req.noDataTimeout     = timeout;
 	req.completionTimeout = timeout;
-	
+
 	result = (*client->handle)->DeviceRequestTO(client->handle, &req);
 	switch (result) {
 		case kIOReturnSuccess:
@@ -3569,19 +3576,19 @@ static int iokit_usb_control_transfer_retval(irecv_client_t client, uint8_t bm_r
 				*rv = req.wLenDone;
 			}
 			return IRECV_E_SUCCESS;
-			
+
 		case kIOReturnTimeout:
 			return IRECV_E_TIMEOUT;
-			
+
 		case kIOUSBTransactionTimeout:
 			return IRECV_E_TIMEOUT;
-			
+
 		case kIOReturnNotResponding:
 			return IRECV_E_NO_DEVICE;
-			
+
 		case kIOReturnNoDevice:
 			return IRECV_E_NO_DEVICE;
-			
+
 		default:
 			return IRECV_E_UNKNOWN_ERROR;
 	}
@@ -3602,7 +3609,14 @@ int irecv_usb_control_transfer_retval(irecv_client_t client, uint8_t bm_request_
 #ifdef HAVE_IOKIT
 	return iokit_usb_control_transfer_retval(client, bm_request_type, b_request, w_value, w_index, data, w_length, timeout, rv);
 #else
-	return IRECV_E_UNSUPPORTED; // TODO
+	int ret = libusb_control_transfer(client->handle, bm_request_type, b_request, w_value, w_index, data, w_length, timeout);
+	if (ret < 0) {
+		return ret;
+	}
+	if (rv) {
+		*rv = ret;
+	}
+	return IRECV_E_SUCCESS;
 #endif
 #else
 	return IRECV_E_UNSUPPORTED; // TODO
@@ -3616,7 +3630,7 @@ static int iokit_usb_control_transfer_no_timeout_retval(irecv_client_t client, u
 {
 	IOReturn result;
 	IOUSBDevRequest req;
-	
+
 	bzero(&req, sizeof(req));
 	req.bmRequestType     = bm_request_type;
 	req.bRequest          = b_request;
@@ -3624,7 +3638,7 @@ static int iokit_usb_control_transfer_no_timeout_retval(irecv_client_t client, u
 	req.wIndex            = OSSwapLittleToHostInt16(w_index);
 	req.wLength           = OSSwapLittleToHostInt16(w_length);
 	req.pData             = data;
-	
+
 	result = (*client->handle)->DeviceRequest(client->handle, &req);
 	switch (result) {
 		case kIOReturnSuccess:
@@ -3632,19 +3646,19 @@ static int iokit_usb_control_transfer_no_timeout_retval(irecv_client_t client, u
 				*rv = req.wLenDone;
 			}
 			return IRECV_E_SUCCESS;
-			
+
 		case kIOReturnTimeout:
 			return IRECV_E_TIMEOUT;
-			
+
 		case kIOUSBTransactionTimeout:
 			return IRECV_E_TIMEOUT;
-			
+
 		case kIOReturnNotResponding:
 			return IRECV_E_NO_DEVICE;
-			
+
 		case kIOReturnNoDevice:
 			return IRECV_E_NO_DEVICE;
-			
+
 		default:
 			return IRECV_E_UNKNOWN_ERROR;
 	}
@@ -3665,7 +3679,14 @@ int irecv_usb_control_transfer_no_timeout_retval(irecv_client_t client, uint8_t 
 #ifdef HAVE_IOKIT
 	return iokit_usb_control_transfer_no_timeout_retval(client, bm_request_type, b_request, w_value, w_index, data, w_length, rv);
 #else
-	return IRECV_E_UNSUPPORTED; // TODO
+	int ret = libusb_control_transfer(client->handle, bm_request_type, b_request, w_value, w_index, data, w_length, 0);
+	if (ret < 0) {
+		return ret;
+	}
+	if (rv) {
+		*rv = ret;
+	}
+	return IRECV_E_SUCCESS;
 #endif
 #else
 	return IRECV_E_UNSUPPORTED; // TODO
@@ -3692,9 +3713,9 @@ irecv_error_t irecv_send_pongo(irecv_client_t client, unsigned char* buffer, uns
 	if (!client->device_info.yolo) {
 		return IRECV_E_UNSUPPORTED;
 	}
-	
+
 	int rv = IRECV_E_UNKNOWN_ERROR;
-	
+
 	uint32_t sent = 0;
 	{
 		size_t len = 0;
@@ -3713,11 +3734,11 @@ irecv_error_t irecv_send_pongo(irecv_client_t client, unsigned char* buffer, uns
 			len += size;
 		}
 	}
-	
+
 	debug("issuing CLRSTATUS\n");
 	irecv_usb_control_transfer(client, 0x21, 4, 0, 0, NULL, 0, USB_TIMEOUT);
 	sleep(1);
-	
+
 	return IRECV_E_SUCCESS;
 #endif
 }

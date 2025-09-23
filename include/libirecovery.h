@@ -106,11 +106,15 @@ struct irecv_device_info {
 	unsigned int ap_nonce_size;
 	unsigned char* sep_nonce;
 	unsigned int sep_nonce_size;
-	uint16_t pid;
-<<<<<<< HEAD
-=======
+    uint16_t pid;
+	unsigned int have_cpid : 1;
+	unsigned int have_cprv : 1;
+	unsigned int have_cpfm : 1;
+	unsigned int have_scep : 1;
+	unsigned int have_bdid : 1;
+	unsigned int have_ecid : 1;
+	unsigned int have_ibfl : 1;
 	int yolo;
->>>>>>> c599324 (Partial support for pongoOS)
 };
 
 typedef enum {
@@ -159,15 +163,12 @@ IRECV_API irecv_error_t irecv_usb_set_configuration(irecv_client_t client, int c
 IRECV_API irecv_error_t irecv_usb_set_interface(irecv_client_t client, int usb_interface, int usb_alt_interface);
 IRECV_API int irecv_usb_control_transfer(irecv_client_t client, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length, unsigned int timeout);
 IRECV_API int irecv_usb_bulk_transfer(irecv_client_t client, unsigned char endpoint, unsigned char *data, int length, int *transferred, unsigned int timeout);
-<<<<<<< HEAD
 IRECV_API int irecv_usb_interrupt_transfer(irecv_client_t client, unsigned char endpoint, unsigned char *data, int length, int *transferred, unsigned int timeout);
-=======
-IRECV_API int irecv_usb_control_transfer_retval(irecv_client_t client, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length, unsigned int timeout, uint32_t* rv);
-IRECV_API int irecv_usb_control_transfer_no_timeout_retval(irecv_client_t client, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length, uint32_t* rv);
-IRECV_API irecv_error_t irecv_send_pongo(irecv_client_t client, unsigned char* buffer, unsigned long length);
+IRECV_API int irecv_usb_control_transfer_retval(irecv_client_t client, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length, unsigned int timeout, uint32_t *rv);
+IRECV_API int irecv_usb_control_transfer_no_timeout_retval(irecv_client_t client, uint8_t bm_request_type, uint8_t b_request, uint16_t w_value, uint16_t w_index, unsigned char *data, uint16_t w_length, uint32_t *rv);
+IRECV_API irecv_error_t irecv_send_pongo(irecv_client_t client, unsigned char *buffer, unsigned long length);
 IRECV_API int irecv_is_pongo_mode(irecv_client_t client);
 IRECV_API int irecv_pongo_send_buffer(irecv_client_t client, unsigned char *data, int length, uint32_t *rv);
->>>>>>> c599324 (Partial support for pongoOS)
 
 /* events */
 typedef void(*irecv_device_event_cb_t)(const irecv_device_event_t* event, void *user_data);
