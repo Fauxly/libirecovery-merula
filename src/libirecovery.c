@@ -2382,15 +2382,36 @@ irecv_error_t irecv_reset(irecv_client_t client)
 #ifdef HAVE_IOKIT
 	IOReturn result;
 
+	#ifdef HAVE_IOKIT
+	IOReturn result;
+
+	debug("IRECV RESET: calling IOKit ResetDevice()\n");
+
 	result = (*client->handle)->ResetDevice(client->handle);
-	if (result != kIOReturnSuccess && result != kIOReturnNotResponding) {
-		debug("error sending device reset: %#x\n", result);
+
+	debug("IRECV RESET: ResetDevice returned %#x\n", result);
+
+	if (result != kIOReturnSuccess &&
+	    result != kIOReturnNotResponding) {
+		debug("IRECV RESET: error sending device reset: %#x\n", result);
 		return IRECV_E_UNKNOWN_ERROR;
 	}
 
-	result = (*client->handle)->USBDeviceReEnumerate(client->handle, 0);
-	if (result != kIOReturnSuccess && result != kIOReturnNotResponding) {
-		debug("error re-enumerating device: %#x (ignored)\n", result);
+	debug("IRECV RESET: calling USBDeviceReEnumerate(0)\n");
+
+	result = (*client->handle)->USBDeviceReEnumerate(
+		client->handle,
+		0
+	);
+
+	debug("IRECV RESET: USBDeviceReEnumerate returned %#x\n", result);
+
+	if (result != kIOReturnSuccess &&
+	    result != kIOReturnNotResponding) {
+		debug(
+			"IRECV RESET: error re-enumerating device: %#x (ignored)\n",
+			result
+		);
 	}
 #else
 	libusb_reset_device(client->handle);
@@ -3899,26 +3920,70 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 	}
 
 	if ((options & IRECV_SEND_OPT_DFU_NOTIFY_FINISH) && !recovery_mode) {
-		irecv_usb_control_transfer(client, 0x21, 1, packets, 0, (unsigned char*) buffer, 0, USB_TIMEOUT);
+    debug("DFU FINISH: sending zero-length DNLOAD, packet=%d\n", packets);
 
-		for (i = 0; i < 2; i++) {
-			error = irecv_get_status(client, &status);
-			if (error != IRECV_E_SUCCESS) {
-				return error;
-			}
-		}
+    int finish_ret = irecv_usb_control_transfer(
+        client,
+        0x21,
+        1,
+        packets,
+        0,
+        (unsigned char*)buffer,
+        0,
+        USB_TIMEOUT
+    );
 
-		if ((options & IRECV_SEND_OPT_DFU_FORCE_ZLP)) {
-			/* we send a pseudo ZLP here just in case */
-			irecv_usb_control_transfer(client, 0x21, 1, 0, 0, 0, 0, USB_TIMEOUT);
-		}
+    debug("DFU FINISH: zero-length DNLOAD returned %d\n", finish_ret);
 
-		irecv_reset(client);
+    for (i = 0; i < 2; i++) {
+        status = 0xffffffff;
 
-		if (isiOS2) {
-			irecv_reconnect(client, 0);
-		}
-	}
+        error = irecv_get_status(client, &status);
+
+        debug(
+            "DFU FINISH: GETSTATUS #%d -> error=%d status=%u\n",
+            i + 1,
+            error,
+            status
+        );
+
+        if (error != IRECV_E_SUCCESS) {
+            debug(
+                "DFU FINISH: GETSTATUS #%d failed, error=%d\n",
+                i + 1,
+                error
+            );
+            return error;
+        }
+    }
+
+    if ((options & IRECV_SEND_OPT_DFU_FORCE_ZLP)) {
+        debug("DFU FINISH: sending FORCE_ZLP\n");
+
+        int zlp_ret = irecv_usb_control_transfer(
+            client,
+            0x21,
+            1,
+            0,
+            0,
+            0,
+            0,
+            USB_TIMEOUT
+        );
+
+        debug("DFU FINISH: FORCE_ZLP returned %d\n", zlp_ret);
+    }
+
+    debug("DFU FINISH: calling irecv_reset()\n");
+
+    irecv_error_t reset_ret = irecv_reset(client);
+
+    debug("DFU FINISH: irecv_reset returned %d\n", reset_ret);
+
+    if (isiOS2) {
+        irecv_reconnect(client, 0);
+    }
+}
 
 	if (legacy_recovery_mode) {
 		irecv_reconnect(client, 0);
