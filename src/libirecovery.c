@@ -3981,7 +3981,18 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
 	}
 
 	if ((options & IRECV_SEND_OPT_DFU_NOTIFY_FINISH) && !recovery_mode) {
-    debug("DFU FINISH: sending zero-length DNLOAD, packet=%d\n", packets);
+    fprintf(stderr,
+        "[libirecovery-merula] DFU FINISH: CPID=0x%04x, packets=%d, length=%lu, options=0x%x\n",
+        client->device_info.cpid,
+        packets,
+        length,
+        options
+    );
+
+    fprintf(stderr,
+        "[libirecovery-merula] DFU FINISH: sending zero-length DNLOAD, packet=%d\n",
+        packets
+    );
 
     int finish_ret = irecv_usb_control_transfer(
         client,
@@ -3994,23 +4005,26 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
         USB_TIMEOUT
     );
 
-    debug("DFU FINISH: zero-length DNLOAD returned %d\n", finish_ret);
+    fprintf(stderr,
+        "[libirecovery-merula] DFU FINISH: zero-length DNLOAD returned %d\n",
+        finish_ret
+    );
 
     for (i = 0; i < 2; i++) {
         status = 0xffffffff;
 
         error = irecv_get_status(client, &status);
 
-        debug(
-            "DFU FINISH: GETSTATUS #%d -> error=%d status=%u\n",
+        fprintf(stderr,
+            "[libirecovery-merula] DFU FINISH: GETSTATUS #%d -> error=%d status=%u\n",
             i + 1,
             error,
             status
         );
 
         if (error != IRECV_E_SUCCESS) {
-            debug(
-                "DFU FINISH: GETSTATUS #%d failed, error=%d\n",
+            fprintf(stderr,
+                "[libirecovery-merula] DFU FINISH: GETSTATUS #%d failed, error=%d\n",
                 i + 1,
                 error
             );
@@ -4018,8 +4032,10 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
         }
     }
 
-    if ((options & IRECV_SEND_OPT_DFU_FORCE_ZLP)) {
-        debug("DFU FINISH: sending FORCE_ZLP\n");
+    if (options & IRECV_SEND_OPT_DFU_FORCE_ZLP) {
+        fprintf(stderr,
+            "[libirecovery-merula] DFU FINISH: sending FORCE_ZLP\n"
+        );
 
         int zlp_ret = irecv_usb_control_transfer(
             client,
@@ -4032,14 +4048,26 @@ irecv_error_t irecv_send_buffer(irecv_client_t client, unsigned char* buffer, un
             USB_TIMEOUT
         );
 
-        debug("DFU FINISH: FORCE_ZLP returned %d\n", zlp_ret);
+        fprintf(stderr,
+            "[libirecovery-merula] DFU FINISH: FORCE_ZLP returned %d\n",
+            zlp_ret
+        );
+    } else {
+        fprintf(stderr,
+            "[libirecovery-merula] DFU FINISH: FORCE_ZLP not requested\n"
+        );
     }
 
-    debug("DFU FINISH: calling irecv_reset()\n");
+    fprintf(stderr,
+        "[libirecovery-merula] DFU FINISH: calling irecv_reset()\n"
+    );
 
     irecv_error_t reset_ret = irecv_reset(client);
 
-    debug("DFU FINISH: irecv_reset returned %d\n", reset_ret);
+    fprintf(stderr,
+        "[libirecovery-merula] DFU FINISH: irecv_reset returned %d\n",
+        reset_ret
+    );
 
     if (isiOS2) {
         irecv_reconnect(client, 0);
