@@ -2382,9 +2382,6 @@ irecv_error_t irecv_reset(irecv_client_t client)
 #ifdef HAVE_IOKIT
 	IOReturn result;
 
-	#ifdef HAVE_IOKIT
-	IOReturn result;
-
 	debug("IRECV RESET: calling IOKit ResetDevice()\n");
 
 	result = (*client->handle)->ResetDevice(client->handle);
