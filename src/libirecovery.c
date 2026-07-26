@@ -4149,6 +4149,8 @@ irecv_error_t irecv_getenv(irecv_client_t client, const char* variable, char** v
 		return error;
 	}
 
+	usleep(50000);
+
 	int rsize = 256;
 	char* response = (char*) malloc(rsize);
 	if (response == NULL) {
