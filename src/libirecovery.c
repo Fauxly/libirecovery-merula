@@ -3370,10 +3370,27 @@ static irecv_error_t irecv_send_command_raw(irecv_client_t client, const char* c
 	}
 
 	if (length > 0) {
-		irecv_usb_control_transfer(client, 0x40, b_request, 0, 0, (unsigned char*) command, length + 1, USB_TIMEOUT);
-	}
+    int ret = irecv_usb_control_transfer(
+        client,
+        0x40,
+        b_request,
+        0,
+        0,
+        (unsigned char*)command,
+        length + 1,
+        USB_TIMEOUT);
 
-	return IRECV_E_SUCCESS;
+    debug("USB CMD='%s' bRequest=%u ret=%d\n",
+          command,
+          b_request,
+          ret);
+
+    if (ret < 0) {
+        return IRECV_E_USB_UPLOAD;
+    }
+}
+
+return IRECV_E_SUCCESS;
 }
 #endif
 
